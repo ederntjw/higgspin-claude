@@ -26,20 +26,19 @@ LANE_TO_MODEL = {
     "t2i_middle":          "google/nano-banana-pro",
     "i2i_product_middle":  "black-forest-labs/flux/kontext",
     "i2i_product_cheap":   "higgsfield-ai/soul/inpaint",
-    "i2v_middle":          "kling-video/v2.1/pro/image-to-video",
+    "i2v_middle":          "bytedance/seedance/v2/fast",
     "i2v_alt_middle":      "higgsfield-ai/dop/turbo",
     "t2v_premium":         "openai/sora-2",
     "t2v_premium_alt":     "google/veo-3.1",
 }
 
 # Cascade: when the primary lane model fails, try these in order.
-# i2v cascade adds Seedance v2/fast as the third tier — best product-consistency
-# fallback when both Kling and DoP Turbo drift on label text (per May 2026
-# product-preservation research).
+# Both i2v lanes lead with Seedance v2/fast — best product/label consistency in
+# 2026 video models. Override by editing this map directly.
 LANE_CASCADE = {
     "i2i_product_middle": ["black-forest-labs/flux/kontext", "google/nano-banana-pro", "higgsfield-ai/soul/inpaint"],
     "t2i_middle":         ["google/nano-banana-pro", "black-forest-labs/flux-2"],
-    "i2v_middle":         ["kling-video/v2.1/pro/image-to-video", "higgsfield-ai/dop/turbo", "bytedance/seedance/v2/fast"],
+    "i2v_middle":         ["bytedance/seedance/v2/fast", "kling-video/v2.1/pro/image-to-video", "higgsfield-ai/dop/turbo"],
     "i2v_product_lock":   ["bytedance/seedance/v2/fast", "kling-video/v2.1/pro/image-to-video", "higgsfield-ai/dop/turbo"],
 }
 

@@ -26,14 +26,16 @@ class TestOrchestrateDryRun(unittest.TestCase):
             msg=f"stdout:\n{self.result.stdout}\nstderr:\n{self.result.stderr}",
         )
 
-    def test_all_eight_stages_mentioned(self):
+    def test_all_seven_stages_mentioned(self):
+        # Stage 7 (stitch) was retired from the pipeline; the report stage
+        # is logged as Stage 8 for historical continuity.
         out = self.result.stdout
-        for n in range(1, 9):
+        for n in (1, 2, 3, 4, 5, 6, 8):
             self.assertIn(f"Stage {n}", out, msg=f"missing 'Stage {n}' in stdout:\n{out}")
 
     def test_at_least_one_model_slug_mentioned(self):
         out = self.result.stdout
-        slugs = ("google/nano-banana-pro", "kling-video/v2.1/pro/image-to-video")
+        slugs = ("google/nano-banana-pro", "bytedance/seedance/v2/fast")
         self.assertTrue(
             any(s in out for s in slugs),
             msg=f"no expected model slug found in stdout:\n{out}",

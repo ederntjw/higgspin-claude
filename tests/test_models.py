@@ -34,7 +34,7 @@ class TestLaneToModel(unittest.TestCase):
     def test_i2v_middle_slug(self):
         self.assertEqual(
             models.LANE_TO_MODEL["i2v_middle"],
-            "kling-video/v2.1/pro/image-to-video",
+            "bytedance/seedance/v2/fast",
         )
 
 
