@@ -88,7 +88,7 @@ For each missing piece, explain plainly what it is and why it's needed:
   >
   > **Path B (fallback, needs an API key)** — sign up at https://cloud.higgsfield.ai, go to Settings → API Keys, copy the key (format: `key:secret`), and paste it after `HF_KEY=` in `.env`. Use this if you don't want the MCP, or if you want to run the pipeline outside Claude Code.
   >
-  > Either way, check live usage at https://cloud.higgsfield.ai/billing."
+  > Either way, check live usage at https://higgsfield.ai (sign in and open your account profile)."
 
 - **`.env` Pinterest values are placeholders** —
   > "Pinterest login — we use Pinterest as a fresh visual source. Based on the moodboard you gave me, I'll search Pinterest for 40 more matching images so we have lots of variety to draw from. Pinterest doesn't have a public API for visual search, so we use a real browser (a tool called Playwright) to log in as you and scrape the search results. Your credentials stay on your machine — they never leave it. Paste your email and password into `PINTEREST_EMAIL=` and `PINTEREST_PASSWORD=` in `.env`."
@@ -104,7 +104,7 @@ Before running anything that costs credits, summarise back:
 > - Moodboard: [N] images
 > - Product-lock: [on / off based on Phase 2]
 > - Output: a 10-second vertical ad at `output/ad/final.mp4`
-> - This will use Higgsfield credits — see your dashboard at https://cloud.higgsfield.ai/billing for live usage.
+> - This will use Higgsfield credits — see your dashboard at https://higgsfield.ai (sign in and open your account profile) for live usage.
 >
 > Ready to run? (yes / no / change something)"
 
@@ -294,7 +294,7 @@ The Higgsfield MCP and SDK do not currently return a per-call credit cost in the
 
 - Each generation writes a JSON sidecar with `model_id` so you know which slug was used.
 - After a run, `output/prompts/run_summary.md` lists every call by model.
-- For the actual credit usage, point users at their Higgsfield billing dashboard: <https://cloud.higgsfield.ai/billing>.
+- For the actual credit usage, point users at their Higgsfield billing dashboard: <https://higgsfield.ai (sign in and open your account profile)>.
 
 Do not surface dollar estimates — they are speculation.
 

@@ -59,7 +59,7 @@ You'll also need `ffmpeg` — the standard tool for combining video clips and au
 
 You need two free signups before the pipeline can work:
 
-1. **[Higgsfield](https://cloud.higgsfield.ai)** — this is the AI service that actually generates the images and video. It runs on a credit-based plan; check your dashboard at https://cloud.higgsfield.ai/billing for live usage. Sign up first.
+1. **[Higgsfield](https://higgsfield.ai)** — this is the AI service that actually generates the images and video. It runs on a credit-based plan; sign in to your Higgsfield account and open your profile to see your live credit balance. Sign up first.
 2. **[Pinterest](https://pinterest.com)** — we use Pinterest as a fresh visual source. The pipeline searches Pinterest for 40 images that match your moodboard's vibe, so we have lots to draw from. Pinterest doesn't have a public API for visual search, so we use a real browser (Playwright) to log in as you and pull the search results. Your password stays on your computer; it never leaves.
 
 Open `.env` (it was just created in step 2) and paste in your Pinterest email and Pinterest password. There are comments in the file showing the format.
@@ -195,7 +195,7 @@ Each stage writes its artifacts to disk before exiting, so you can resume from a
 
 The cascade is automatic: a 4xx from the primary model falls through to the next tier, and you can see exactly which slug each call hit in the JSON sidecar next to every output.
 
-For exact credit costs and live usage, see your Higgsfield billing dashboard at <https://cloud.higgsfield.ai/billing>. The Higgsfield MCP and SDK do not currently return per-call credit cost in the response payload, so the pipeline can show you *which model ran* but not *what it cost* — only Higgsfield can.
+For exact credit costs and live usage, sign in at <https://higgsfield.ai> and open your account profile. The Higgsfield MCP and SDK do not currently return per-call credit cost in the response payload, so the pipeline can show you *which model ran* but not *what it cost* — only Higgsfield can.
 
 ---
 

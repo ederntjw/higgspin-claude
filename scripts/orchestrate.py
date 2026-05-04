@@ -255,8 +255,8 @@ def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
     parts.append(
         "\n## Actual cost\n\n"
         "Higgsfield does not expose per-call credit cost via the API or MCP, so this "
-        "pipeline cannot show what a run actually consumed. For real usage, see your "
-        "Higgsfield billing dashboard: https://cloud.higgsfield.ai/billing\n"
+        "pipeline cannot show what a run actually consumed. For real usage, sign in at "
+        "https://higgsfield.ai and open your account profile.\n"
     )
     parts.append(
         "\n## Estimated credits (NOT actual — see Higgsfield dashboard)\n"
