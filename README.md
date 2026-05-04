@@ -16,7 +16,7 @@ The project does this on your behalf:
 
 You stay in the loop — Claude (the AI assistant that runs this) walks you through it conversationally, asks you what you're advertising, what feeling you want, checks your setup, and explains what every step does before doing it.
 
-**Cost:** roughly $3–6 in AI credits per finished ad. **Time:** about 10–15 minutes from clean clone to finished video.
+**Cost:** uses Higgsfield credits — the exact amount depends on which models the cascade picks for your moodboard. Check your Higgsfield billing dashboard for live usage. **Time:** about 10–15 minutes from clean clone to finished video.
 
 **Who this is for:** founders, creators, agency people, hobbyists. You don't need to know what an "I2V model" is. You don't need to write prompts. You don't need to use Adobe anything.
 
@@ -59,14 +59,22 @@ You'll also need `ffmpeg` — the standard tool for combining video clips and au
 
 You need two free signups before the pipeline can work:
 
-1. **[Higgsfield](https://cloud.higgsfield.ai)** — this is the AI service that actually generates the images and video. They charge per generation (about $3–6 for a complete run). Sign up, go to **Settings → API Keys**, and copy the key. The format is `key:secret` joined by a colon.
+1. **[Higgsfield](https://cloud.higgsfield.ai)** — this is the AI service that actually generates the images and video. It runs on a credit-based plan; check your dashboard at https://cloud.higgsfield.ai/billing for live usage. Sign up first.
 2. **[Pinterest](https://pinterest.com)** — we use Pinterest as a fresh visual source. The pipeline searches Pinterest for 40 images that match your moodboard's vibe, so we have lots to draw from. Pinterest doesn't have a public API for visual search, so we use a real browser (Playwright) to log in as you and pull the search results. Your password stays on your computer; it never leaves.
 
-Open `.env` (it was just created in step 2) and paste in your Higgsfield key, Pinterest email, and Pinterest password. There are comments in the file showing the format.
+Open `.env` (it was just created in step 2) and paste in your Pinterest email and Pinterest password. There are comments in the file showing the format.
 
-### Step 4 — Open the folder in Claude Code
+### Step 4 — Open the folder in Claude Code, register the Higgsfield MCP
 
-Install [Claude Code](https://claude.com/claude-code) if you don't have it, then open this folder in it.
+Install [Claude Code](https://claude.com/claude-code) if you don't have it, then open this folder in it. Once inside, register and authorise the Higgsfield MCP — this is the recommended path because it means **you don't need to put a Higgsfield API key in `.env` at all**:
+
+```bash
+claude mcp add --transport http higgsfield https://mcp.higgsfield.ai/mcp
+```
+
+Then type `/mcp` in the Claude Code session and complete the OAuth flow that pops up. Restart the session once so the MCP tools register.
+
+> **Tip:** if you'd rather use the Python SDK fallback (or run outside Claude Code entirely), you instead need to put `HF_KEY=key:secret` into `.env` — get the value from Higgsfield Settings → API Keys. You only need *one* of the two — MCP **or** API key — not both.
 
 ### Step 5 — Tell Claude what you're making
 
@@ -177,29 +185,17 @@ Each stage writes its artifacts to disk before exiting, so you can resume from a
 
 ## Models used (May 2026, middle-cost tier)
 
-| Lane | Model slug | Cost (Higgsfield credits) | Why this one |
-|---|---|---|---|
-| Hero shot, multi-ref | `google/nano-banana-pro` | 2 cr / 2K image | 2026 SOTA for product photography; up to 14 reference images |
-| Scene variations (subject lock) | `black-forest-labs/flux/kontext` | 1.5 cr | Subject-preserving instruction edits |
-| Insurance (label drift) | `higgsfield-ai/soul/inpaint` | 0.25 cr | Mask the product, regenerate only the background |
-| Image-to-video (default) | `kling-video/v2.1/pro/image-to-video` | ~7 cr / 5s | Best label readability among mid-tier video models |
-| Image-to-video (product-lock) | `bytedance/seedance/v2/fast` | ~8.5 cr / 5s | Best product/logo consistency in 2026 video models |
+| Lane | Model slug | Why this one |
+|---|---|---|
+| Hero shot, multi-ref | `google/nano-banana-pro` | 2026 SOTA for product photography; up to 14 reference images |
+| Scene variations (subject lock) | `black-forest-labs/flux/kontext` | Subject-preserving instruction edits |
+| Insurance (label drift) | `higgsfield-ai/soul/inpaint` | Mask the product, regenerate only the background |
+| Image-to-video (default) | `kling-video/v2.1/pro/image-to-video` | Best label readability among mid-tier video models |
+| Image-to-video (product-lock) | `bytedance/seedance/v2/fast` | Best product/logo consistency in 2026 video models |
 
 The cascade is automatic: a 4xx from the primary model falls through to the next tier, and you can see exactly which slug each call hit in the JSON sidecar next to every output.
 
----
-
-## Cost expectations
-
-For the default 10-second run, with product-lock on:
-
-| Item | Quantity | Subtotal |
-|---|---|---|
-| Stage 4 hero+variant images | 10 × 2 cr | 20 cr |
-| Stage 6 video clips | 2 × 7–8.5 cr | 14–17 cr |
-| **Total** | | **~34–37 cr ≈ $3–6** |
-
-For 30-second config: about 62–70 credits ≈ $5–10. The full ledger is in `output/prompts/run_summary.md` after every run.
+For exact credit costs and live usage, see your Higgsfield billing dashboard at <https://cloud.higgsfield.ai/billing>. The Higgsfield MCP and SDK do not currently return per-call credit cost in the response payload, so the pipeline can show you *which model ran* but not *what it cost* — only Higgsfield can.
 
 ---
 

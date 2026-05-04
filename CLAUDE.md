@@ -77,12 +77,21 @@ For each missing piece, explain plainly what it is and why it's needed:
 - **`ffmpeg` missing** —
   > "We need `ffmpeg` — it's the standard tool for combining video clips and audio. The AI services give us individual 5-second clips; ffmpeg stitches them together with music into your final ad. Install with: `brew install ffmpeg` (Mac) or `sudo apt install ffmpeg` (Linux)."
 
-- **`.env` has placeholder values** —
-  > "We need two sets of credentials in your `.env` file:
+- **Higgsfield auth not set up** — the user has two paths; pick ONE:
+  > "Higgsfield is the AI service that actually generates your images and video. You only need ONE of the two paths below — not both:
   >
-  > 1. **Higgsfield API key** — Higgsfield is the AI service that actually generates the images and video. They charge per generation (roughly $3–6 for a full run). Sign up at https://cloud.higgsfield.ai, go to Settings → API Keys, copy the key. Paste it after `HF_KEY=` in `.env`. The format is `key:secret` joined by a colon.
+  > **Path A (recommended, no API key needed)** — register the Higgsfield MCP in Claude Code:
+  > ```bash
+  > claude mcp add --transport http higgsfield https://mcp.higgsfield.ai/mcp
+  > ```
+  > then run `/mcp` here and complete the OAuth pop-up, then restart this session. That's it — no values in `.env` for Higgsfield.
   >
-  > 2. **Pinterest login** — we use Pinterest as a fresh visual source. Based on the moodboard you just gave me, I'll search Pinterest for 40 more matching images so we have lots of variety to draw from. Pinterest doesn't have a public API for this, so we use a real browser (a tool called Playwright) to log in as you and scrape the search results. Your credentials stay on your machine — they never leave it. Paste your email and password into `PINTEREST_EMAIL=` and `PINTEREST_PASSWORD=` in `.env`."
+  > **Path B (fallback, needs an API key)** — sign up at https://cloud.higgsfield.ai, go to Settings → API Keys, copy the key (format: `key:secret`), and paste it after `HF_KEY=` in `.env`. Use this if you don't want the MCP, or if you want to run the pipeline outside Claude Code.
+  >
+  > Either way, check live usage at https://cloud.higgsfield.ai/billing."
+
+- **`.env` Pinterest values are placeholders** —
+  > "Pinterest login — we use Pinterest as a fresh visual source. Based on the moodboard you gave me, I'll search Pinterest for 40 more matching images so we have lots of variety to draw from. Pinterest doesn't have a public API for visual search, so we use a real browser (a tool called Playwright) to log in as you and scrape the search results. Your credentials stay on your machine — they never leave it. Paste your email and password into `PINTEREST_EMAIL=` and `PINTEREST_PASSWORD=` in `.env`."
 
 After they confirm setup is done, verify by re-running the check.
 
@@ -95,7 +104,7 @@ Before running anything that costs credits, summarise back:
 > - Moodboard: [N] images
 > - Product-lock: [on / off based on Phase 2]
 > - Output: a 10-second vertical ad at `output/ad/final.mp4`
-> - Estimated cost: about $3–6 in Higgsfield credits
+> - This will use Higgsfield credits — see your dashboard at https://cloud.higgsfield.ai/billing for live usage.
 >
 > Ready to run? (yes / no / change something)"
 
@@ -132,10 +141,19 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium    # add --with-deps on Apple Silicon
 brew install ffmpeg            # required for Stage 7 stitch
-cp .env.example .env           # then fill in HF_KEY + Pinterest creds
+cp .env.example .env           # fill in Pinterest creds; Higgsfield auth handled below
 ```
 
-The Higgsfield MCP is registered for this project (see `claude mcp list`). Authenticate it once via `/mcp` inside an interactive Claude Code session — after that, generation runs through the MCP and the SDK is the automatic fallback.
+**Higgsfield auth — pick ONE path:**
+
+- **MCP (recommended for Claude Code users)** — register and authorise once, no API key in `.env` needed:
+  ```bash
+  claude mcp add --transport http higgsfield https://mcp.higgsfield.ai/mcp
+  # then `/mcp` and OAuth, then restart the Claude Code session
+  ```
+- **API key (fallback / for non-Claude-Code users)** — set `HF_KEY=key:secret` in `.env` (get from https://cloud.higgsfield.ai → Settings → API Keys).
+
+If both are present, the MCP is preferred and the SDK is the automatic fallback.
 
 ## Project layout
 
@@ -270,15 +288,15 @@ Aesthetic-type fallback table (`scripts/models.py`, used when MCP discovery is u
 
 Slug fixes vs. v1: `bytedance/seedream-5` → `bytedance/seedream/v5/lite`; `openai/gpt-image-2` → `openai/gpt-image`. If a 404 returns from the platform, update `scripts/models.py` and rerun the affected stage with `--skip-stages`.
 
-## Cost ceiling per full run
+## Tracking what a run costs
 
-| Item | Quantity | Unit | Subtotal |
-|---|---|---|---|
-| Stage 4 stills | 10 | 2 cr | 20 cr |
-| Stage 6 video clips (10s default) | 2 × 5s | 7 cr | 14 cr |
-| **Total** | | | **~34 cr ≈ $3–6** |
+The Higgsfield MCP and SDK do not currently return a per-call credit cost in the response, so the pipeline cannot tell the user exactly what a run consumed. Instead:
 
-30s configuration ≈ 62 cr ≈ $5–10. Cost ledger written into `run_summary.md`.
+- Each generation writes a JSON sidecar with `model_id` so you know which slug was used.
+- After a run, `output/prompts/run_summary.md` lists every call by model.
+- For the actual credit usage, point users at their Higgsfield billing dashboard: <https://cloud.higgsfield.ai/billing>.
+
+Do not surface dollar estimates — they are speculation.
 
 ## Failure modes (and the actual fix)
 

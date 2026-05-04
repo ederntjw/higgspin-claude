@@ -230,7 +230,7 @@ def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
     if _skipped(8, ctx):
         return
     if args.dry_run:
-        _log(8, f"[dry-run] would write {SUMMARY_PATH} with cost ledger + artifact links")
+        _log(8, f"[dry-run] would write {SUMMARY_PATH} with model ledger + artifact links")
         return
     totals = cost_tracker.total()
     fp = ctx.fingerprint or {}
@@ -252,7 +252,18 @@ def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
     parts.append("\n## Clips\n")
     parts.extend(f"- {c}\n" for c in ctx.clip_paths)
     parts.append(f"\n## Final ad\n\n{ctx.final_video or '(not produced)'}\n")
-    parts.append("\n## Cost ledger\n```json\n" + json.dumps(totals, indent=2) + "\n```\n")
+    parts.append(
+        "\n## Actual cost\n\n"
+        "Higgsfield does not expose per-call credit cost via the API or MCP, so this "
+        "pipeline cannot show what a run actually consumed. For real usage, see your "
+        "Higgsfield billing dashboard: https://cloud.higgsfield.ai/billing\n"
+    )
+    parts.append(
+        "\n## Estimated credits (NOT actual — see Higgsfield dashboard)\n"
+        "Numbers below come from a static estimate table in `scripts/generate_image.py` / `scripts/generate_video.py`. "
+        "They reflect the published per-model cost as of May 2026 but do NOT reflect what your account was actually charged.\n"
+        "```json\n" + json.dumps(totals, indent=2) + "\n```\n"
+    )
     if ctx.errors:
         parts.append("\n## Errors\n")
         parts.extend(f"- stage {n}: {m}\n" for n, m in ctx.errors)
