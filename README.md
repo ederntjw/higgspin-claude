@@ -1,6 +1,6 @@
 # higgspin-claude
 
-> Turn a few inspiration images into a finished 10-second vertical ad — without ever opening Photoshop, Premiere, or an AI tool you've never used before.
+> Turn a product photo and a few moodboard images into two 8-second vertical ad clips — without ever opening Photoshop, Premiere, or an AI tool you've never used before.
 
 ## What this actually does (in plain English)
 
@@ -12,7 +12,7 @@ The project does this on your behalf:
 1. **Looks at your inspiration images** and figures out the visual style — palette, mood, lighting, the kind of photography you're after.
 2. **Searches Pinterest** for 40 more images in that same style, so we have lots to draw from.
 3. **Generates 10 brand-new images** in that style using AI. If you gave it a product photo, it keeps your product visible and unchanged in every single one.
-4. **Stitches those images into a 10-second vertical ad** with background music, ready to post on TikTok, Reels, or Shorts.
+4. **Animates two of those images into 8-second vertical clips** ready to post on TikTok, Reels, or Shorts. You get the raw clips — no forced stitch, no overlay.
 
 You stay in the loop — Claude (the AI assistant that runs this) walks you through it conversationally, asks you what you're advertising, what feeling you want, checks your setup, and explains what every step does before doing it.
 
@@ -96,8 +96,8 @@ Claude reads `CLAUDE.md` (the instructions file in this repo) and walks you thro
 2. It tells you to drop 5–10 inspiration images into `references/images/`.
 3. It asks if you have a clean product photo (optional but recommended).
 4. It checks your setup is complete and explains anything that's missing.
-5. It runs the whole 8-stage pipeline and shows progress at each step.
-6. When it's done, your ad is at `output/ad/final.mp4` and the cost breakdown is at `output/prompts/run_summary.md`.
+5. It runs the whole 7-stage pipeline and shows progress at each step.
+6. When it's done, your two clips are at `output/ad/clips/shot_1.mp4` and `output/ad/clips/shot_2.mp4`, and the cost breakdown is at `output/prompts/run_summary.md`.
 
 You never write a prompt yourself, never pick a model, never call an API. Claude does all of that based on your visual references.
 
@@ -111,7 +111,7 @@ If you've used this before and just want to run it directly:
 python scripts/orchestrate.py
 ```
 
-Stages 1 and 3 (vision passes) need an LLM with vision; the easiest path is still to run from inside Claude Code. Without Claude Code, you can populate `output/prompts/fingerprint.json` and `output/prompts/extracted_prompts.jsonl` yourself (see [docs/superpowers/specs/](./docs/superpowers/specs/) for the schemas) and the orchestrator will use them.
+Stages 1 and 3 (vision passes) need an LLM with vision; the easiest path is still to run from inside Claude Code. Without Claude Code, you can populate `output/prompts/fingerprint.json` and `output/prompts/extracted_prompts.jsonl` yourself (the schemas are validated by `scripts/fingerprint.py` and `scripts/extract_prompts.py`) and the orchestrator will use them.
 
 ---
 
@@ -120,7 +120,7 @@ Stages 1 and 3 (vision passes) need an LLM with vision; the easiest path is stil
 The pipeline can run from a regular shell, but Stages 1 and 3 need vision over images. You'll need the Anthropic API directly. Drop in your `ANTHROPIC_API_KEY`, write a small script that produces `output/prompts/fingerprint.json` and `output/prompts/extracted_prompts.jsonl`, then run:
 
 ```bash
-python scripts/orchestrate.py --duration 10
+python scripts/orchestrate.py --duration 16
 ```
 
 The orchestrator pauses if either artifact is missing and prints exactly what is expected.
@@ -130,10 +130,10 @@ The orchestrator pauses if either artifact is missing and prints exactly what is
 ## Common flags
 
 ```bash
-# Different ad lengths
-python scripts/orchestrate.py --duration 10        # 2 × 5s clips (default)
-python scripts/orchestrate.py --duration 30        # 6 × 5s clips
-python scripts/orchestrate.py --duration 15 --clip 5
+# Different number of clips
+python scripts/orchestrate.py                      # 2 × 8s clips (default)
+python scripts/orchestrate.py --duration 32        # 4 × 8s clips
+python scripts/orchestrate.py --duration 20 --clip 5  # 4 × 5s clips
 
 # Force product-lock (or off)
 python scripts/orchestrate.py --product-lock on
@@ -174,10 +174,9 @@ Then `/mcp` in Claude Code and authorize. **If you skip this, the pipeline still
 | 2 | Pinterest scrape | Playwright (`pinterest_scrape.py`) | `output/pinterest/<slug>/` |
 | 3 | Per-pin prompt extraction | Claude vision | `output/prompts/extracted_prompts.jsonl` |
 | 4 | Image generation (product-lock or moodboard-only) | Higgsfield via MCP/SDK | `output/generated/*.png` + JSON sidecars |
-| 5 | Storyboard (10s → 2 × 5s shots) | local Python | `output/prompts/storyboard.json` |
+| 5 | Storyboard (16s → 2 × 8s shots) | local Python | `output/prompts/storyboard.json` |
 | 6 | Image-to-video clips | Higgsfield via MCP/SDK | `output/ad/clips/shot_*.mp4` |
-| 7 | Stitch + audio + (optional) text overlays | `ffmpeg` | `output/ad/final.mp4` |
-| 8 | Run report | local Python | `output/prompts/run_summary.md` |
+| 7 | Run report | local Python | `output/prompts/run_summary.md` |
 
 Each stage writes its artifacts to disk before exiting, so you can resume from any stage with `--skip-stages`.
 
@@ -209,13 +208,9 @@ Edit `output/prompts/fingerprint.json` after Stage 1 — change `aesthetic_type`
 
 Edit `scripts/models.py` — `LANE_TO_MODEL` and `LANE_CASCADE` are short, plain-Python dictionaries. Slug syntax matches Higgsfield's `{vendor}/{model}/{variant}` convention.
 
-### Pick your music
+### Stitch the clips together (optional)
 
-Drop any `.mp3` into `assets/audio/` — the stitcher picks the first one alphabetically. Recommended Pixabay royalty-free tracks are listed in `assets/audio/README.md`. Empty directory → silent ad.
-
-### Add text overlays
-
-Pass JSON-shaped overlay specs to `scripts/stitch_video.py` directly (the orchestrator does not yet wire this up — it's a one-line addition if you want it):
+The pipeline outputs the raw clips — perfect for posting individually as separate Reels/TikToks. If you want a single combined cut, `scripts/stitch_video.py` is still available standalone:
 
 ```bash
 python scripts/stitch_video.py \
@@ -224,6 +219,8 @@ python scripts/stitch_video.py \
   --out output/ad/final.mp4 \
   --overlay '{"text":"Available now","start_s":7,"duration_s":3,"position":"bottom"}'
 ```
+
+Drop any `.mp3` into `assets/audio/` to add music; pass `--overlay` JSON specs to burn in text.
 
 ---
 
@@ -234,7 +231,7 @@ python scripts/stitch_video.py \
 - **MCP not authenticated.** The pipeline's three-tier wrapper falls back to the SDK transparently. To enable the MCP path, run `/mcp` in Claude Code, authorize, then restart your session.
 - **Generations look generic.** Your reference images are too low-res (<1024px). Replace them — no amount of prompt engineering downstream can recover detail that wasn't in the references.
 - **Wrong house aesthetic.** You're routed to the wrong model. Edit the `AESTHETIC_TO_MODEL` table in `scripts/models.py` and rerun stage 4 only.
-- **Label drifts in video.** That's why the product-lock cascade leads with Seedance v2/fast. If it still drifts, edit the storyboard to keep clips ≤4s — drift correlates with shot length above 5s.
+- **Label drifts in video.** That's why the product-lock cascade leads with Seedance v2/fast. The default 8s clip length is the sweet spot for most products — past 8s, label/text drift becomes likely. Drop to `--clip 5` for label-heavy products if you see issues.
 - **`ffmpeg: command not found`.** Install ffmpeg via your package manager.
 
 ---
@@ -252,7 +249,7 @@ python scripts/stitch_video.py \
 │   ├─ generate_image.py            ← Stage 4 (product-lock aware, 3-tier cascade)
 │   ├─ storyboard.py                ← Stage 5 (Seedance 6-step formula)
 │   ├─ generate_video.py            ← Stage 6 (Kling / Seedance / DoP cascade)
-│   ├─ stitch_video.py              ← Stage 7 (ffmpeg)
+│   ├─ stitch_video.py              ← optional combined cut (ffmpeg, standalone CLI)
 │   ├─ models.py                    ← May 2026 routing tables
 │   └─ lib/
 │       ├─ mcp_client.py            ← MCP → SDK → HTTP cascade
@@ -262,11 +259,10 @@ python scripts/stitch_video.py \
 │   ├─ prompts/                     ← fingerprint, JSONL, storyboard, summary
 │   ├─ pinterest/<slug>/            ← scraped pins
 │   ├─ generated/                   ← stills + sidecars
-│   └─ ad/{clips,final.mp4}         ← video clips + final cut
+│   └─ ad/clips/                    ← raw video clips (the deliverable)
 │
-├─ assets/audio/                    ← bundled royalty-free music
+├─ assets/audio/                    ← bundled royalty-free music (optional)
 ├─ tests/                           ← unit + dry-run tests
-├─ docs/superpowers/specs/          ← design doc
 ├─ CLAUDE.md                        ← Claude Code's master orchestration prompt
 └─ README.md                        ← this file
 ```

@@ -1,6 +1,6 @@
 # Aesthetic Automation v2 — Product-Locked Pipeline + Short-Form Ad
 
-Pinterest moodboard → extracted prompts → Higgsfield stills → Kling I2V clips → stitched short-form ad. One CLI entry point; the two vision passes (Stages 1 + 3) are done by Claude Code automatically when an operator runs the pipeline from inside it.
+Pinterest moodboard → extracted prompts → Higgsfield stills → Seedance I2V clips. One CLI entry point; the two vision passes (Stages 1 + 3) are done by Claude Code automatically when an operator runs the pipeline from inside it. The default output is two raw 8-second vertical clips at `output/ad/clips/shot_*.mp4` — no forced stitch, no overlay.
 
 ---
 
@@ -75,7 +75,7 @@ For each missing piece, explain plainly what it is and why it's needed:
   > "I need to install the Python libraries this project uses. They get installed in a folder called `.venv` inside this project, kept separate from the rest of your computer so nothing else gets affected. Run this in your terminal: `./setup.sh`"
 
 - **`ffmpeg` missing** —
-  > "We need `ffmpeg` — it's the standard tool for combining video clips and audio. The AI services give us individual 5-second clips; ffmpeg stitches them together with music into your final ad. Install with: `brew install ffmpeg` (Mac) or `sudo apt install ffmpeg` (Linux)."
+  > "We need `ffmpeg` — it's the standard tool for combining video clips and audio. The pipeline outputs two raw 8s clips that are perfect on their own; `ffmpeg` is only needed if you later want to stitch them into a single combined cut with the standalone `scripts/stitch_video.py` helper. Install with: `brew install ffmpeg` (Mac) or `sudo apt install ffmpeg` (Linux)."
 
 - **Higgsfield auth not set up** — the user has two paths; pick ONE:
   > "Higgsfield is the AI service that actually generates your images and video. You only need ONE of the two paths below — not both:
@@ -103,7 +103,7 @@ Before running anything that costs credits, summarise back:
 > - Topic: [what they told me in Phase 0]
 > - Moodboard: [N] images
 > - Product-lock: [on / off based on Phase 2]
-> - Output: a 10-second vertical ad at `output/ad/final.mp4`
+> - Output: two 8-second vertical clips at `output/ad/clips/shot_1.mp4` and `output/ad/clips/shot_2.mp4`
 > - This will use Higgsfield credits — see your dashboard at https://higgsfield.ai (sign in and open your account profile) for live usage.
 >
 > Ready to run? (yes / no / change something)"
@@ -117,17 +117,17 @@ Now run the work. Talk through each stage as it happens — short status lines, 
 1. **Stage 1 — fingerprint.** Read every image in `references/images/` with vision. Produce a JSON object with palette, mood, lighting, aesthetic_type, and a 4–8 word Pinterest search query. Save to `output/prompts/fingerprint.json`. Show the result to the user.
 2. **Stage 2 — Pinterest scrape.** Run `python scripts/orchestrate.py --skip-stages 1,3,4,5,6,7,8` to scrape 40 fresh pins matching the search query. Mention that the first scrape may pop a CAPTCHA in a visible browser — they solve it once, the session caches.
 3. **Stage 3 — score and pick prompts.** For each scraped pin, vision-read it and write a detailed prompt that includes lighting, lens spec, film stock, photographer reference, composition. Score 0–1 against the fingerprint. Append to `output/prompts/extracted_prompts.jsonl`. Top 10 by score advance (one still per prompt — 10 unique compositions).
-4. **Stages 4–8 — generate, storyboard, video, stitch, report.** Run `python scripts/orchestrate.py --skip-stages 1,2,3` (or skip more if applicable). Stream the output. When it's done, show them where the final ad lives and link to the cost ledger.
+4. **Stages 4–7 — generate, storyboard, video, report.** Run `python scripts/orchestrate.py --skip-stages 1,2,3` (or skip more if applicable). Stream the output. When it's done, show them where the two clips live and link to the cost ledger.
 
 After completion, ask:
 
-> "Done. Final ad: `output/ad/final.mp4` (open it). Want me to make any tweaks — different length, swap a still, different music?"
+> "Done. Your two clips are at `output/ad/clips/shot_1.mp4` and `shot_2.mp4` — open them. Want me to make any tweaks — swap a still, regenerate one shot, or stitch them together with music?"
 
 ### Examples of direct execute (no onboarding)
 
 If the user has clearly used the pipeline before and says any of these, skip the guided flow and just run:
 
-- *"run a 30-second version"* → `python scripts/orchestrate.py --duration 30`
+- *"run with 4 clips instead of 2"* → `python scripts/orchestrate.py --duration 32`
 - *"only redo the video"* → `python scripts/orchestrate.py --skip-stages 1,2,3,4`
 - *"dry run"* → `python scripts/orchestrate.py --dry-run`
 - *"why did stage 6 fail"* → read `output/prompts/run_summary.md` and explain.
@@ -140,7 +140,7 @@ If the user has clearly used the pipeline before and says any of these, skip the
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium    # add --with-deps on Apple Silicon
-brew install ffmpeg            # required for Stage 7 stitch
+brew install ffmpeg            # only needed if you later run scripts/stitch_video.py to combine clips
 cp .env.example .env           # fill in Pinterest creds; Higgsfield auth handled below
 ```
 
@@ -167,8 +167,7 @@ output/
   prompts/             # fingerprint.json, extracted_prompts.jsonl, storyboard.json, run_summary.md
   generated/           # final stills + JSON sidecars
   ad/
-    clips/             # raw 5s I2V clips
-    final.mp4          # stitched ad (default 10s)
+    clips/             # raw 8s I2V clips (the deliverable)
 
 scripts/
   orchestrate.py       # single-entry CLI runner
@@ -176,9 +175,9 @@ scripts/
   fingerprint.py       # schema + validator
   extract_prompts.py   # JSONL writer + scoring math
   generate_image.py    # product-lock-aware cascade
-  storyboard.py        # duration → N × 5s shot beats
+  storyboard.py        # duration → N × clip-length shot beats
   generate_video.py    # Kling 2.1 Pro I2V wrapper
-  stitch_video.py      # ffmpeg concat + audio + text overlays
+  stitch_video.py      # optional standalone CLI: ffmpeg concat + audio + text overlays
   generate.py          # legacy SDK wrapper, retained as fallback
   models.py            # LANE_TO_MODEL + AESTHETIC_TO_MODEL routing tables
   lib/
@@ -206,11 +205,12 @@ docs/superpowers/specs/
 ## Run it (single command)
 
 ```bash
-python scripts/orchestrate.py [--duration 10] [--product-lock auto]
+python scripts/orchestrate.py [--duration 16] [--clip 8] [--product-lock auto]
 ```
 
 Flags:
-- `--duration` — final ad length in seconds (default `10`; configurable, e.g. `30` produces 6 × 5s clips).
+- `--duration` — total seconds of footage (default `16` → 2 × 8s clips). With `--clip 5`, set `--duration 10` for 2 × 5s.
+- `--clip` — per-clip length in seconds (default `8`).
 - `--product-lock` — `auto` (default), `on`, or `off`.
 - `--skip-stages 1,2` — resume after a failure; each stage writes its artifact to disk.
 - `--dry-run` — print the planned API calls without executing them.
@@ -225,9 +225,9 @@ Stage 2  Pinterest scrape   python scripts/pinterest_scrape.py       → output/
 Stage 3  Extract prompts    Vision pass + score against fingerprint  → output/prompts/extracted_prompts.jsonl (top 10)
 Stage 4  Generate stills    nano-banana-pro → flux/kontext → soul/inpaint cascade
                             with optional hero.png as ref-1          → output/generated/*.png + sidecars
-Stage 5  Storyboard         duration ÷ 5s = N shot beats             → output/prompts/storyboard.json
+Stage 5  Storyboard         duration ÷ clip = N shot beats           → output/prompts/storyboard.json (default 2 × 8s)
 Stage 6  Generate clips     kling-video/v2.1/pro/image-to-video      → output/ad/clips/shot_{n}.mp4
-Stage 7  Stitch             ffmpeg concat + music + text overlays    → output/ad/final.mp4
+(stitch is now opt-in — run `scripts/stitch_video.py` separately if you want a combined cut)
 Stage 8  Run report         markdown summary with cost ledger        → output/prompts/run_summary.md
 ```
 
@@ -255,11 +255,11 @@ Per pin under `output/pinterest/<slug>/`, reverse-engineer a prompt that include
 
 ### Stage 5 — Storyboard
 
-Default 10s = 2 × 5s shots. `--duration 30` = 6 × 5s. Each beat picks a still from Stage 4 and a camera-move prompt (e.g. *slow push-in*, *parallax dolly*).
+Default 16s = 2 × 8s shots. `--duration 32 --clip 8` = 4 × 8s. Each beat picks a still from Stage 4 and a camera-move prompt (e.g. *slow push-in*, *parallax dolly*).
 
 ### Stage 6 — Image-to-video
 
-One Kling 2.1 Pro I2V call per shot, 5s ceiling enforced. Drift past 8s is the documented failure mode for label-bearing video — always stitch in post.
+One Seedance v2/fast I2V call per shot (best product/label consistency in 2026 video models). 8s is the default per-clip length; drift past ~8s is the documented failure mode for label-bearing video.
 
 ### Stage 7 — Stitch
 
@@ -274,7 +274,7 @@ Live as of 2026-05-04 (see design doc for sourcing).
 | Hero / multi-ref product | `google/nano-banana-pro` | 2026 SOTA product fidelity, up to 14 reference images |
 | Scene variations | `black-forest-labs/flux/kontext` | Subject-locked instruction edits; cheaper for high volume |
 | Insurance inpaint | `higgsfield-ai/soul/inpaint` | Mask + paste-back; zero label drift |
-| I2V (10s clips) | `kling-video/v2.1/pro/image-to-video` | Best label readability in mid-tier video |
+| I2V (8s clips, default) | `bytedance/seedance/v2/fast` | Best product/label consistency in 2026 video models — leads both `i2v_middle` and `i2v_product_lock` cascades |
 
 Aesthetic-type fallback table (`scripts/models.py`, used when MCP discovery is unavailable):
 
@@ -305,7 +305,7 @@ Do not surface dollar estimates — they are speculation.
 - **MCP not authenticated.** SDK fallback activates automatically via `scripts/lib/mcp_client.py`. Restart the Claude Code session after running `/mcp` to enable the MCP path.
 - **Generations look generic.** Reference images are too low-res (<1024px) → vision can't extract specifics. Replace refs first; do not paper over with prompt engineering.
 - **Wrong house aesthetic on outputs.** Routed to the wrong model. Edit `LANE_TO_MODEL` / `AESTHETIC_TO_MODEL` in `scripts/models.py` and rerun Stage 4 only with `--skip-stages 1,2,3`.
-- **Label drift in video.** 5s clip ceiling is enforced; concat in Stage 7. If still drifting, regenerate the underlying still via the `soul/inpaint` insurance lane and re-run Stage 6.
+- **Label drift in video.** Default lane is Seedance v2/fast for product consistency. If 8s clips still drift, drop to `--clip 5` for that run, or regenerate the underlying still via the `soul/inpaint` insurance lane and rerun Stage 6.
 - **Slug 404 from platform.** Update the slug in `scripts/models.py`; orchestrator resumes from the failed stage on rerun.
 
 ---

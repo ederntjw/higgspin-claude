@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts import extract_prompts, fingerprint as fingerprint_mod  # noqa: E402
-from scripts import generate_image, generate_video, storyboard as storyboard_mod, stitch_video  # noqa: E402
+from scripts import generate_image, generate_video, storyboard as storyboard_mod  # noqa: E402
 from scripts import models as models_mod  # noqa: E402
 from scripts.lib import cost_tracker  # noqa: E402
 
@@ -29,9 +29,7 @@ EXTRACTED_PATH = PROMPTS / "extracted_prompts.jsonl"
 STORYBOARD_PATH = PROMPTS / "storyboard.json"
 SUMMARY_PATH = PROMPTS / "run_summary.md"
 PINTEREST_DIR = ROOT / "output" / "pinterest"
-FINAL_MP4 = ROOT / "output" / "ad" / "final.mp4"
 PRODUCT_PATH = ROOT / "references" / "product" / "hero.png"
-AUDIO_DIR = ROOT / "assets" / "audio"
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
@@ -50,7 +48,6 @@ class Context:
     sidecars: list[dict] = field(default_factory=list)
     storyboard: list[dict] = field(default_factory=list)
     clip_paths: list[str] = field(default_factory=list)
-    final_video: str | None = None
     product_path: str | None = None
     errors: list[tuple[int, str]] = field(default_factory=list)
     skip: set[int] = field(default_factory=set)
@@ -211,20 +208,6 @@ def stage_6_video(args: argparse.Namespace, ctx: Context) -> None:
     _log(6, f"generated {len(ctx.clip_paths)} clips")
 
 
-def stage_7_stitch(args: argparse.Namespace, ctx: Context) -> None:
-    if _skipped(7, ctx):
-        return
-    audio = next((str(f) for f in sorted(AUDIO_DIR.glob("*.mp3"))), "") if AUDIO_DIR.exists() else ""
-    if args.dry_run:
-        _log(7, f"[dry-run] would stitch {len(ctx.clip_paths) or 'N'} clips with audio={audio or '(none)'} to {FINAL_MP4}")
-        return
-    if not ctx.clip_paths:
-        raise SystemExit("Stage 7: no clips to stitch.")
-    FINAL_MP4.parent.mkdir(parents=True, exist_ok=True)
-    ctx.final_video = stitch_video.stitch(ctx.clip_paths, audio, str(FINAL_MP4))
-    _log(7, f"final ad: {ctx.final_video}")
-
-
 def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
     if _skipped(8, ctx):
         return
@@ -250,7 +233,6 @@ def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
     parts.extend(f"- {s.get('output_path')} (model {s.get('model_id')})\n" for s in ctx.sidecars)
     parts.append("\n## Clips\n")
     parts.extend(f"- {c}\n" for c in ctx.clip_paths)
-    parts.append(f"\n## Final ad\n\n{ctx.final_video or '(not produced)'}\n")
     parts.append(
         "\n## Actual cost\n\n"
         "Higgsfield does not expose per-call credit cost via the API or MCP, so this "
@@ -278,7 +260,6 @@ STAGES: list[tuple[int, str, Callable[[argparse.Namespace, Context], None]]] = [
     (4, "generate-images", stage_4_generate),
     (5, "storyboard", stage_5_storyboard),
     (6, "generate-video", stage_6_video),
-    (7, "stitch", stage_7_stitch),
 ]
 
 
@@ -288,8 +269,8 @@ def _parse_skip(raw: str | None) -> set[int]:
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Aesthetic automation v2 orchestrator.")
-    p.add_argument("--duration", type=int, default=10)
-    p.add_argument("--clip", type=int, default=5)
+    p.add_argument("--duration", type=int, default=16)
+    p.add_argument("--clip", type=int, default=8)
     p.add_argument("--product-lock", choices=("auto", "on", "off"), default="auto")
     p.add_argument("--skip-stages", default="")
     p.add_argument("--dry-run", action="store_true")
