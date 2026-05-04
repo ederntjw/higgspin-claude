@@ -27,93 +27,52 @@ Switching is automatic. Override with `--product-lock=on|off|auto`.
 
 ---
 
-## Prerequisites
-
-| Tool | Why | Install |
-|---|---|---|
-| Python ≥ 3.9 | Pipeline is pure Python | system or `pyenv` |
-| `ffmpeg` | Stitches the final ad | `brew install ffmpeg` (macOS), `apt install ffmpeg` (Debian/Ubuntu) |
-| [Claude Code](https://claude.com/claude-code) CLI | Runs the orchestration prompt + does the vision passes | follow the install docs |
-| A [Higgsfield](https://cloud.higgsfield.ai) account | Image + video generation | get an API key from `Settings → API Keys` (mid plan recommended) |
-| A Pinterest account | Scraping reference pins | any account; first scrape may need a manual CAPTCHA solve |
-
-Optional but recommended:
-
-- The official **Higgsfield MCP** — registered automatically by the setup steps below; gives Claude Code a faster, native call surface.
-
----
-
-## One-time setup
+## Quickstart (5 steps from a fresh clone)
 
 ```bash
-git clone <this-repo> higgspin-claude
+# 1. Clone and enter the repo
+git clone https://github.com/ederntjw/higgspin-claude
 cd higgspin-claude
 
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium     # add --with-deps on Apple Silicon
+# 2. Run the one-shot setup (venv, deps, Playwright Chromium, .env template)
+./setup.sh
 
-cp .env.example .env            # then fill in HF_KEY + Pinterest creds
+# 3. Fill in your credentials
+#    Open .env and set:
+#      HF_KEY=your_key:your_secret      (https://cloud.higgsfield.ai/api-keys)
+#      PINTEREST_EMAIL=...
+#      PINTEREST_PASSWORD=...
+
+# 4. Drop your moodboard
+#    Put 5-10 images into references/images/ (each ≥1024px on the long edge).
+#    OPTIONAL: drop a clean product photo at references/product/hero.png to
+#    enable product-lock mode (preserves the product across every frame).
+
+# 5. Open the folder in Claude Code, then say:
+#       run the pipeline
+#    Claude does the two vision passes itself and runs the orchestrator.
+#    Final ad lands at output/ad/final.mp4. Cost ledger at output/prompts/run_summary.md.
 ```
 
-`.env` keys:
+You also need `ffmpeg` on PATH for Stage 7 (the stitch). On macOS: `brew install ffmpeg`. On Debian/Ubuntu: `sudo apt install ffmpeg`.
 
-```ini
-# Higgsfield: combined "key:secret" OR set the two halves separately
-HF_KEY=your_key:your_secret
-
-# Pinterest: used by the scraper
-PINTEREST_EMAIL=you@example.com
-PINTEREST_PASSWORD=your_password
-```
-
-Register the Higgsfield MCP in Claude Code (one-time, project-scoped):
-
-```bash
-claude mcp add --transport http higgsfield https://mcp.higgsfield.ai/mcp
-```
-
-Then in an interactive Claude Code session, run `/mcp` and authorize. After authorization, restart the session so the MCP tools register. **If you skip this, the pipeline still works** — it falls back to the `higgsfield-client` Python SDK automatically.
+That's the whole user-facing flow. The rest of this README is reference material for power users (different ad lengths, model overrides, troubleshooting).
 
 ---
 
-## Drop in your moodboard (and your product)
+## Without Claude Code (advanced)
 
-```
-references/
-├── images/                # 5–10 Pinterest pins, ≥1024px, JPG/PNG/WEBP
-└── product/
-    └── hero.png           # optional — your actual product, transparent or white BG
-```
-
-Tips:
-
-- Moodboard refs **must be ≥1024px** on the long edge or the vision model can't extract specifics. This is the #1 cause of generic-looking output.
-- For product-lock mode, hero.png should be a **single clean angle**, sharp focus, even lighting. Reflective products (chrome/glass) benefit from two angles (`hero.png` + `hero_b.png`).
-
----
-
-## Run it
-
-The whole pipeline is one command, but two of the eight stages need Claude Code to do the vision pass for you. The orchestrator pauses at those points and tells you exactly what to run.
-
-### Path A — interactive Claude Code (recommended)
-
-Open this directory in Claude Code and paste the master prompt from [CLAUDE.md](./CLAUDE.md). Claude will do the vision passes inline, then run the orchestrator for everything else. End-to-end in one shot.
-
-### Path B — manual orchestration
+The pipeline can run from a regular shell, but Stages 1 and 3 need vision over images. You'll need the Anthropic API directly. Drop in your `ANTHROPIC_API_KEY`, write a small script that produces `output/prompts/fingerprint.json` and `output/prompts/extracted_prompts.jsonl`, then run:
 
 ```bash
-# Stage 1: Claude vision over references/images/ → output/prompts/fingerprint.json
-#   (run this inside Claude Code: see CLAUDE.md Stage 1)
-
-# Stage 2 onward — run the orchestrator
 python scripts/orchestrate.py --duration 10
 ```
 
-Stage 3 also pauses for a Claude vision pass to extract per-pin prompts. The orchestrator prints what to do.
+The orchestrator pauses if either artifact is missing and prints exactly what is expected.
 
-### Common flags
+---
+
+## Common flags
 
 ```bash
 # Different ad lengths
@@ -137,6 +96,18 @@ python scripts/orchestrate.py --query "minimal scandinavian skincare"
 # Generate more or fewer images
 python scripts/orchestrate.py --n-images 6        # 3 prompts × 2 variants
 ```
+
+---
+
+## Optional: Higgsfield MCP
+
+Faster than the SDK. Register once:
+
+```bash
+claude mcp add --transport http higgsfield https://mcp.higgsfield.ai/mcp
+```
+
+Then `/mcp` in Claude Code and authorize. **If you skip this, the pipeline still works** — it falls back to the `higgsfield-client` Python SDK automatically.
 
 ---
 

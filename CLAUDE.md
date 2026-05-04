@@ -1,8 +1,43 @@
 # Aesthetic Automation v2 — Product-Locked Pipeline + Short-Form Ad
 
-Pinterest moodboard → extracted prompts → Higgsfield stills → Kling I2V clips → stitched short-form ad. Driven from a single CLI entry point; vision passes (Stages 1 + 3) are still done by the operator running this in Claude Code.
+Pinterest moodboard → extracted prompts → Higgsfield stills → Kling I2V clips → stitched short-form ad. One CLI entry point; the two vision passes (Stages 1 + 3) are done by Claude Code automatically when an operator runs the pipeline from inside it.
 
-## One-time setup (do this before the first run)
+---
+
+## If the user asks "how do I use this" / "how do I run this" / "how do I use you"
+
+Answer with this exact sequence — these are the 5 steps a public user follows from a fresh clone. Don't editorialize, don't add philosophy, don't split "use the pipeline" from "use Claude Code". They're the same thing.
+
+1. **Run setup once** (creates `.venv`, installs deps, fetches Playwright Chromium, copies `.env.example` → `.env`):
+   ```bash
+   ./setup.sh
+   ```
+   If `ffmpeg` isn't installed it prints a warning — install it (`brew install ffmpeg` on macOS, `sudo apt install ffmpeg` on Linux).
+
+2. **Fill in `.env`** with the user's Higgsfield key and Pinterest credentials. The file has comments explaining the format.
+
+3. **Drop 5–10 moodboard images** into `references/images/`. Each ≥1024px on the long edge. JPG / PNG / WEBP all fine.
+
+4. *(Optional, enables product-lock mode)* **Drop a clean product photo** at `references/product/hero.png`. Transparent or white background, sharp focus.
+
+5. **Tell Claude Code in plain English**: *"run the pipeline"*. Claude will:
+   - Do Stage 1 by reading `references/images/` with vision and writing `output/prompts/fingerprint.json`.
+   - Run Stage 2 (`python scripts/orchestrate.py --skip-stages 1`) to scrape Pinterest.
+   - Do Stage 3 by scoring each scraped pin against the fingerprint and writing `output/prompts/extracted_prompts.jsonl`.
+   - Run Stages 4–8 via the orchestrator. Final ad lands at `output/ad/final.mp4`. Cost ledger lands at `output/prompts/run_summary.md`.
+
+That's the whole user-facing flow. Other useful one-liners the user might say:
+
+- *"run a 30-second version"* → `python scripts/orchestrate.py --duration 30`
+- *"only redo the video"* → `python scripts/orchestrate.py --skip-stages 1,2,3,4`
+- *"dry run"* → `python scripts/orchestrate.py --dry-run` (no API calls, no credit burn)
+- *"why did it fail"* → check `output/prompts/run_summary.md` — every stage's error is logged there.
+
+Do not pause and ask "what would you like to do?" when the user clearly just wants to run the thing. Run it.
+
+---
+
+## One-time setup (manual equivalent of `./setup.sh`)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
