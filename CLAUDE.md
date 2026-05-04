@@ -116,7 +116,7 @@ Now run the work. Talk through each stage as it happens — short status lines, 
 
 1. **Stage 1 — fingerprint.** Read every image in `references/images/` with vision. Produce a JSON object with palette, mood, lighting, aesthetic_type, and a 4–8 word Pinterest search query. Save to `output/prompts/fingerprint.json`. Show the result to the user.
 2. **Stage 2 — Pinterest scrape.** Run `python scripts/orchestrate.py --skip-stages 1,3,4,5,6,7,8` to scrape 40 fresh pins matching the search query. Mention that the first scrape may pop a CAPTCHA in a visible browser — they solve it once, the session caches.
-3. **Stage 3 — score and pick prompts.** For each scraped pin, vision-read it and write a detailed prompt that includes lighting, lens spec, film stock, photographer reference, composition. Score 0–1 against the fingerprint. Append to `output/prompts/extracted_prompts.jsonl`. Top 5 by score advance.
+3. **Stage 3 — score and pick prompts.** For each scraped pin, vision-read it and write a detailed prompt that includes lighting, lens spec, film stock, photographer reference, composition. Score 0–1 against the fingerprint. Append to `output/prompts/extracted_prompts.jsonl`. Top 10 by score advance (one still per prompt — 10 unique compositions).
 4. **Stages 4–8 — generate, storyboard, video, stitch, report.** Run `python scripts/orchestrate.py --skip-stages 1,2,3` (or skip more if applicable). Stream the output. When it's done, show them where the final ad lives and link to the cost ledger.
 
 After completion, ask:
@@ -222,7 +222,7 @@ Stages 1 and 3 are vision passes. The orchestrator pauses and prints exactly wha
 ```
 Stage 1  Fingerprint        Vision pass over references/images/      → output/prompts/fingerprint.json
 Stage 2  Pinterest scrape   python scripts/pinterest_scrape.py       → output/pinterest/{slug}/
-Stage 3  Extract prompts    Vision pass + score against fingerprint  → output/prompts/extracted_prompts.jsonl (top 5)
+Stage 3  Extract prompts    Vision pass + score against fingerprint  → output/prompts/extracted_prompts.jsonl (top 10)
 Stage 4  Generate stills    nano-banana-pro → flux/kontext → soul/inpaint cascade
                             with optional hero.png as ref-1          → output/generated/*.png + sidecars
 Stage 5  Storyboard         duration ÷ 5s = N shot beats             → output/prompts/storyboard.json
@@ -251,7 +251,7 @@ Save to `output/prompts/fingerprint.json`. The orchestrator validates the shape 
 
 ### Stage 3 — Prompt extraction (vision pass)
 
-Per pin under `output/pinterest/<slug>/`, reverse-engineer a prompt that includes: subject + action + setting, lighting style, lens / camera spec, film stock or grade, photographer or aesthetic reference, composition note. Score 0–1 against the fingerprint and append to `extracted_prompts.jsonl`. Top 5 by score advance.
+Per pin under `output/pinterest/<slug>/`, reverse-engineer a prompt that includes: subject + action + setting, lighting style, lens / camera spec, film stock or grade, photographer or aesthetic reference, composition note. Score 0–1 against the fingerprint and append to `extracted_prompts.jsonl`. Top 10 by score advance (one still generated per prompt).
 
 ### Stage 5 — Storyboard
 
