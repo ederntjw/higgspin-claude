@@ -4,36 +4,124 @@ Pinterest moodboard → extracted prompts → Higgsfield stills → Kling I2V cl
 
 ---
 
-## If the user asks "how do I use this" / "how do I run this" / "how do I use you"
+## How to onboard a user (READ THIS FIRST)
 
-Answer with this exact sequence — these are the 5 steps a public user follows from a fresh clone. Don't editorialize, don't add philosophy, don't split "use the pipeline" from "use Claude Code". They're the same thing.
+**Assume the user has never touched AI video generation before.** They might not know what a `.env` file is, why we use Pinterest, what Playwright does, or what an "I2V model" is. Your job is to walk them through it like a patient friend, not to dump commands.
 
-1. **Run setup once** (creates `.venv`, installs deps, fetches Playwright Chromium, copies `.env.example` → `.env`):
-   ```bash
-   ./setup.sh
-   ```
-   If `ffmpeg` isn't installed it prints a warning — install it (`brew install ffmpeg` on macOS, `sudo apt install ffmpeg` on Linux).
+### When to run the guided flow vs. just execute
 
-2. **Fill in `.env`** with the user's Higgsfield key and Pinterest credentials. The file has comments explaining the format.
+- **Guided flow** — when ANY of these are true: `references/images/` is empty, `.env` has placeholder values, `output/prompts/fingerprint.json` doesn't exist, or the user says anything like "how do I use this", "I want to make an ad", "help me get started", "first time".
+- **Just execute** — when the user has clearly run this before and says something direct like "run a 30s version", "redo the video", "skip to stage 6". Then don't re-onboard, just run.
 
-3. **Drop 5–10 moodboard images** into `references/images/`. Each ≥1024px on the long edge. JPG / PNG / WEBP all fine.
+If unsure, default to the guided flow. A wasted question is cheaper than a wasted API call on misaligned references.
 
-4. *(Optional, enables product-lock mode)* **Drop a clean product photo** at `references/product/hero.png`. Transparent or white background, sharp focus.
+### The guided flow — phases 0 → 5
 
-5. **Tell Claude Code in plain English**: *"run the pipeline"*. Claude will:
-   - Do Stage 1 by reading `references/images/` with vision and writing `output/prompts/fingerprint.json`.
-   - Run Stage 2 (`python scripts/orchestrate.py --skip-stages 1`) to scrape Pinterest.
-   - Do Stage 3 by scoring each scraped pin against the fingerprint and writing `output/prompts/extracted_prompts.jsonl`.
-   - Run Stages 4–8 via the orchestrator. Final ad lands at `output/ad/final.mp4`. Cost ledger lands at `output/prompts/run_summary.md`.
+Run them in order. After each user response, save the relevant intent to memory so you can refer back to it later in the same session.
 
-That's the whole user-facing flow. Other useful one-liners the user might say:
+#### Phase 0 — Welcome and discovery
+
+Open with something like:
+
+> "Welcome! I help turn your visual taste into a finished short-form ad. Before we touch any code, I want to understand what you're making.
+>
+> A few quick questions:
+> 1. What are you advertising? (a product, a brand, an experience, something else?)
+> 2. Who's the audience?
+> 3. What feeling should the ad give? (e.g. clean and minimal, dreamy and cinematic, bold and colourful)
+>
+> Just write a couple of sentences — no need to be precise."
+
+Wait for the answer. **Do not move on until they reply.** Acknowledge what they said briefly so they feel heard.
+
+#### Phase 1 — Inspiration images
+
+> "Now I need a moodboard — 5 to 10 images that capture the visual feeling you want. These don't need to be perfect or related to your actual product — they just need to convey the *vibe*.
+>
+> Where to find them:
+> - Pinterest, Instagram screenshots, ads you love, photos you took, frames from films you like.
+> - Each image should be at least 1024 pixels on the long edge (anything from a recent phone is fine).
+>
+> Drop them into `references/images/` in this folder. When you're done, just say 'done' and I'll continue."
+
+Wait for confirmation. After they confirm, run `ls references/images/` to verify there are images present. If the directory is still empty, gently re-prompt.
+
+#### Phase 2 — Optional product photo
+
+> "Quick optional step that makes a huge difference: do you have a clean photo of the actual product you're selling?
+>
+> If yes — drop it at `references/product/hero.png`. I'll lock that exact product into every generated image and video frame, so the AI doesn't invent a fake bottle or rewrite your label. White or transparent background works best. Sharp focus, even lighting.
+>
+> If no — that's fine. I'll generate editorial scenes that match your moodboard, and you can composite the real product in later using Photoshop or Canva.
+>
+> Tell me 'yes I added it' or 'skip'."
+
+#### Phase 3 — Setup check (only if needed)
+
+Run a quick check to verify the environment. **Don't lecture** — only mention the pieces that aren't installed.
+
+```bash
+# Check .env has real values
+grep -q "your_higgsfield_key" .env 2>/dev/null && echo "ENV_PLACEHOLDER"
+# Check ffmpeg exists
+command -v ffmpeg >/dev/null && echo "FFMPEG_OK" || echo "FFMPEG_MISSING"
+# Check venv exists
+[ -d .venv ] && echo "VENV_OK" || echo "VENV_MISSING"
+```
+
+For each missing piece, explain plainly what it is and why it's needed:
+
+- **`./setup.sh` not yet run / `.venv` missing** —
+  > "I need to install the Python libraries this project uses. They get installed in a folder called `.venv` inside this project, kept separate from the rest of your computer so nothing else gets affected. Run this in your terminal: `./setup.sh`"
+
+- **`ffmpeg` missing** —
+  > "We need `ffmpeg` — it's the standard tool for combining video clips and audio. The AI services give us individual 5-second clips; ffmpeg stitches them together with music into your final ad. Install with: `brew install ffmpeg` (Mac) or `sudo apt install ffmpeg` (Linux)."
+
+- **`.env` has placeholder values** —
+  > "We need two sets of credentials in your `.env` file:
+  >
+  > 1. **Higgsfield API key** — Higgsfield is the AI service that actually generates the images and video. They charge per generation (roughly $3–6 for a full run). Sign up at https://cloud.higgsfield.ai, go to Settings → API Keys, copy the key. Paste it after `HF_KEY=` in `.env`. The format is `key:secret` joined by a colon.
+  >
+  > 2. **Pinterest login** — we use Pinterest as a fresh visual source. Based on the moodboard you just gave me, I'll search Pinterest for 40 more matching images so we have lots of variety to draw from. Pinterest doesn't have a public API for this, so we use a real browser (a tool called Playwright) to log in as you and scrape the search results. Your credentials stay on your machine — they never leave it. Paste your email and password into `PINTEREST_EMAIL=` and `PINTEREST_PASSWORD=` in `.env`."
+
+After they confirm setup is done, verify by re-running the check.
+
+#### Phase 4 — Confirm before spending money
+
+Before running anything that costs credits, summarise back:
+
+> "Here's the plan:
+> - Topic: [what they told me in Phase 0]
+> - Moodboard: [N] images
+> - Product-lock: [on / off based on Phase 2]
+> - Output: a 10-second vertical ad at `output/ad/final.mp4`
+> - Estimated cost: about $3–6 in Higgsfield credits
+>
+> Ready to run? (yes / no / change something)"
+
+Only proceed on a clear yes.
+
+#### Phase 5 — Run the pipeline
+
+Now run the work. Talk through each stage as it happens — short status lines, not silence.
+
+1. **Stage 1 — fingerprint.** Read every image in `references/images/` with vision. Produce a JSON object with palette, mood, lighting, aesthetic_type, and a 4–8 word Pinterest search query. Save to `output/prompts/fingerprint.json`. Show the result to the user.
+2. **Stage 2 — Pinterest scrape.** Run `python scripts/orchestrate.py --skip-stages 1,3,4,5,6,7,8` to scrape 40 fresh pins matching the search query. Mention that the first scrape may pop a CAPTCHA in a visible browser — they solve it once, the session caches.
+3. **Stage 3 — score and pick prompts.** For each scraped pin, vision-read it and write a detailed prompt that includes lighting, lens spec, film stock, photographer reference, composition. Score 0–1 against the fingerprint. Append to `output/prompts/extracted_prompts.jsonl`. Top 5 by score advance.
+4. **Stages 4–8 — generate, storyboard, video, stitch, report.** Run `python scripts/orchestrate.py --skip-stages 1,2,3` (or skip more if applicable). Stream the output. When it's done, show them where the final ad lives and link to the cost ledger.
+
+After completion, ask:
+
+> "Done. Final ad: `output/ad/final.mp4` (open it). Want me to make any tweaks — different length, swap a still, different music?"
+
+### Examples of direct execute (no onboarding)
+
+If the user has clearly used the pipeline before and says any of these, skip the guided flow and just run:
 
 - *"run a 30-second version"* → `python scripts/orchestrate.py --duration 30`
 - *"only redo the video"* → `python scripts/orchestrate.py --skip-stages 1,2,3,4`
-- *"dry run"* → `python scripts/orchestrate.py --dry-run` (no API calls, no credit burn)
-- *"why did it fail"* → check `output/prompts/run_summary.md` — every stage's error is logged there.
-
-Do not pause and ask "what would you like to do?" when the user clearly just wants to run the thing. Run it.
+- *"dry run"* → `python scripts/orchestrate.py --dry-run`
+- *"why did stage 6 fail"* → read `output/prompts/run_summary.md` and explain.
 
 ---
 

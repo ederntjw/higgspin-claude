@@ -1,62 +1,109 @@
 # higgspin-claude
 
-> Pinterest moodboard → on-brand AI stills → 10s short-form ad. Driven from a single Claude Code prompt, with your real product locked in across every frame.
+> Turn a few inspiration images into a finished 10-second vertical ad — without ever opening Photoshop, Premiere, or an AI tool you've never used before.
 
-This is a small, opinionated pipeline that turns reference images into a finished vertical ad. It uses [Higgsfield AI](https://higgsfield.ai) for image and video generation (with a three-tier fallback: MCP → SDK → raw HTTP), and Claude Code for the vision and orchestration parts. Models are chosen for the **middle-cost tier** as of **May 2026** — not the cheapest, not the flagship.
+## What this actually does (in plain English)
 
-## What you get
+You hand over:
+- 5–10 images that capture the *vibe* you want (Pinterest pins, Instagram screenshots, photos you've taken — anything).
+- *(Optional)* A clean photo of the product you're advertising.
 
-For every run:
+The project does this on your behalf:
+1. **Looks at your inspiration images** and figures out the visual style — palette, mood, lighting, the kind of photography you're after.
+2. **Searches Pinterest** for 40 more images in that same style, so we have lots to draw from.
+3. **Generates 10 brand-new images** in that style using AI. If you gave it a product photo, it keeps your product visible and unchanged in every single one.
+4. **Stitches those images into a 10-second vertical ad** with background music, ready to post on TikTok, Reels, or Shorts.
 
-- A **visual fingerprint** of your moodboard (palette, mood, aesthetic type, search query)
-- 40 fresh Pinterest pins matching the vibe
-- 10 generated stills that follow the fingerprint and (optionally) **lock your real product** across all of them
-- A 2-shot **10-second vertical ad** stitched from those stills with background music
-- A run summary with cost ledger and links to every artifact
+You stay in the loop — Claude (the AI assistant that runs this) walks you through it conversationally, asks you what you're advertising, what feeling you want, checks your setup, and explains what every step does before doing it.
 
-Default budget per run: about 34 Higgsfield credits (~$3–6 on the mid plan). Configurable.
+**Cost:** roughly $3–6 in AI credits per finished ad. **Time:** about 10–15 minutes from clean clone to finished video.
 
-## Pick your mode
+**Who this is for:** founders, creators, agency people, hobbyists. You don't need to know what an "I2V model" is. You don't need to write prompts. You don't need to use Adobe anything.
+
+## Two modes
 
 | Mode | When | What happens |
 |---|---|---|
-| **Placeholder** | You don't have a hero product photo yet | Pipeline produces editorial moodboard scenes for you to composite a product into later |
-| **Product-lock** | Drop a clean photo at `references/product/hero.png` | Pipeline preserves the product's geometry, label, and brand marks across all 10 stills and into the video |
+| **Placeholder** | You don't have a product photo yet | Pipeline produces editorial scenes that match your moodboard. You composite a real product in later if you want. |
+| **Product-lock** | You drop a clean photo at `references/product/hero.png` | Pipeline preserves the product's exact geometry, label, and branding across all 10 stills and into the video. No hallucinated bottles, no rewritten labels. |
 
-Switching is automatic. Override with `--product-lock=on|off|auto`.
+The mode switches automatically based on whether the file is there.
 
 ---
 
-## Quickstart (5 steps from a fresh clone)
+## Getting started — the actual experience
+
+Here's what your first run looks like end-to-end.
+
+### Step 1 — Get the code on your machine
 
 ```bash
-# 1. Clone and enter the repo
 git clone https://github.com/ederntjw/higgspin-claude
 cd higgspin-claude
-
-# 2. Run the one-shot setup (venv, deps, Playwright Chromium, .env template)
-./setup.sh
-
-# 3. Fill in your credentials
-#    Open .env and set:
-#      HF_KEY=your_key:your_secret      (https://cloud.higgsfield.ai/api-keys)
-#      PINTEREST_EMAIL=...
-#      PINTEREST_PASSWORD=...
-
-# 4. Drop your moodboard
-#    Put 5-10 images into references/images/ (each ≥1024px on the long edge).
-#    OPTIONAL: drop a clean product photo at references/product/hero.png to
-#    enable product-lock mode (preserves the product across every frame).
-
-# 5. Open the folder in Claude Code, then say:
-#       run the pipeline
-#    Claude does the two vision passes itself and runs the orchestrator.
-#    Final ad lands at output/ad/final.mp4. Cost ledger at output/prompts/run_summary.md.
 ```
 
-You also need `ffmpeg` on PATH for Stage 7 (the stitch). On macOS: `brew install ffmpeg`. On Debian/Ubuntu: `sudo apt install ffmpeg`.
+### Step 2 — Run setup once
 
-That's the whole user-facing flow. The rest of this README is reference material for power users (different ad lengths, model overrides, troubleshooting).
+```bash
+./setup.sh
+```
+
+This installs the Python libraries the project uses (in a folder called `.venv` so nothing on your computer outside this project is touched), downloads a small browser tool we need (Playwright Chromium), and copies a template for your credentials file.
+
+You'll also need `ffmpeg` — the standard tool for combining video clips and audio. The setup script prints a warning if it's missing:
+
+- macOS: `brew install ffmpeg`
+- Linux: `sudo apt install ffmpeg`
+
+### Step 3 — Get your accounts
+
+You need two free signups before the pipeline can work:
+
+1. **[Higgsfield](https://cloud.higgsfield.ai)** — this is the AI service that actually generates the images and video. They charge per generation (about $3–6 for a complete run). Sign up, go to **Settings → API Keys**, and copy the key. The format is `key:secret` joined by a colon.
+2. **[Pinterest](https://pinterest.com)** — we use Pinterest as a fresh visual source. The pipeline searches Pinterest for 40 images that match your moodboard's vibe, so we have lots to draw from. Pinterest doesn't have a public API for visual search, so we use a real browser (Playwright) to log in as you and pull the search results. Your password stays on your computer; it never leaves.
+
+Open `.env` (it was just created in step 2) and paste in your Higgsfield key, Pinterest email, and Pinterest password. There are comments in the file showing the format.
+
+### Step 4 — Open the folder in Claude Code
+
+Install [Claude Code](https://claude.com/claude-code) if you don't have it, then open this folder in it.
+
+### Step 5 — Tell Claude what you're making
+
+Just type something like:
+
+> *"I want to make an ad for my new sparkling water brand"*
+>
+> or
+>
+> *"help me get started"*
+>
+> or
+>
+> *"first time here, how does this work?"*
+
+Claude reads `CLAUDE.md` (the instructions file in this repo) and walks you through the rest as a conversation:
+
+1. It asks what you're selling, who the audience is, and what feeling you want.
+2. It tells you to drop 5–10 inspiration images into `references/images/`.
+3. It asks if you have a clean product photo (optional but recommended).
+4. It checks your setup is complete and explains anything that's missing.
+5. It runs the whole 8-stage pipeline and shows progress at each step.
+6. When it's done, your ad is at `output/ad/final.mp4` and the cost breakdown is at `output/prompts/run_summary.md`.
+
+You never write a prompt yourself, never pick a model, never call an API. Claude does all of that based on your visual references.
+
+---
+
+## Power-user mode
+
+If you've used this before and just want to run it directly:
+
+```bash
+python scripts/orchestrate.py
+```
+
+Stages 1 and 3 (vision passes) need an LLM with vision; the easiest path is still to run from inside Claude Code. Without Claude Code, you can populate `output/prompts/fingerprint.json` and `output/prompts/extracted_prompts.jsonl` yourself (see [docs/superpowers/specs/](./docs/superpowers/specs/) for the schemas) and the orchestrator will use them.
 
 ---
 
