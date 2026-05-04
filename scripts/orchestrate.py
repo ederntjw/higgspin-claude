@@ -121,7 +121,7 @@ def stage_3_extract(args: argparse.Namespace, ctx: Context) -> None:
     if _skipped(3, ctx):
         return
     _log(3, f"expects {EXTRACTED_PATH}. Run Claude vision over output/pinterest/{ctx.pin_slug or '<slug>'}/ to populate it.")
-    n_top = max(1, int(args.n_images) // 2)
+    n_top = max(1, int(args.n_images))
     if args.dry_run:
         _log(3, f"[dry-run] would call extract_prompts.top_n({EXTRACTED_PATH}, {n_top})")
         return
@@ -160,15 +160,14 @@ def stage_4_generate(args: argparse.Namespace, ctx: Context) -> None:
     )
     for p in pairs:
         mood, prompt = p.get("src"), p.get("prompt", "")
-        for variant in (1, 2):
-            if args.dry_run:
-                _log(4, f"[dry-run] generate_image.generate slug={primary_slug} aesthetic={aesthetic} product={ctx.product_path} mood={mood} variant={variant}")
-                continue
-            _log(4, f"generating variant {variant} for prompt score={p.get('score')}")
-            ctx.sidecars.append(generate_image.generate(
-                prompt, aesthetic=aesthetic, product_image=ctx.product_path,
-                mood_image=mood, aspect="4:5", resolution="2K",
-            ))
+        if args.dry_run:
+            _log(4, f"[dry-run] generate_image.generate slug={primary_slug} aesthetic={aesthetic} product={ctx.product_path} mood={mood}")
+            continue
+        _log(4, f"generating still for prompt score={p.get('score')}")
+        ctx.sidecars.append(generate_image.generate(
+            prompt, aesthetic=aesthetic, product_image=ctx.product_path,
+            mood_image=mood, aspect="4:5", resolution="2K",
+        ))
     _log(4, f"produced {len(ctx.sidecars)} stills")
 
 
@@ -242,7 +241,7 @@ def stage_8_report(args: argparse.Namespace, ctx: Context) -> None:
         "\n## Top prompts\n",
     ]
     for i, p in enumerate(ctx.top_prompts, 1):
-        sc = ctx.sidecars[(i - 1) * 2] if (i - 1) * 2 < len(ctx.sidecars) else {}
+        sc = ctx.sidecars[i - 1] if (i - 1) < len(ctx.sidecars) else {}
         parts.append(
             f"{i}. score={p.get('score', 0):.2f} model={sc.get('model_id', '(none)')}\n"
             f"   prompt: {p.get('prompt')}\n   sidecar: {sc.get('output_path', '(none)')}\n"
